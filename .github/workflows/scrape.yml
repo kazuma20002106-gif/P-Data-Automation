@@ -1,0 +1,52 @@
+name: P-Data Daily Scraper
+
+on:
+  schedule:
+    # 毎日 日本時間 01:00 に実行 (UTCでは 16:00)
+    - cron: '0 16 * * *'
+  workflow_dispatch: # GitHubの画面から手動でテスト実行するためのボタン
+
+jobs:
+  scrape-and-save:
+    runs-on: ubuntu-latest # クラウド上の最新のLinuxサーバーを使用
+    
+    steps:
+    # 1. GitHubのリポジトリからコードをサーバーにコピー
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    # 2. Python環境の構築
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    # 3. 必要なライブラリ（Playwright等）のインストール
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install playwright
+        playwright install --with-deps chromium
+        
+    # 4. データ抽出スクリプトの実行！
+    - name: Run Scraper
+      run: python p_test.py
+      
+    # 5. 更新されたデータを保存し、60日停止ルールを回避する（永久機関）
+    - name: Commit and Push Data (Keepalive)
+      run: |
+        # サーバーの時計を日本時間に合わせる
+        sudo timedatectl set-timezone Asia/Tokyo
+        
+        # 常に更新される「生存報告ファイル」を作成し、60日停止ルールを強制ブレイク
+        date > last_run.txt 
+        
+        # GitHubのボットとしてコミットする準備
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # 新しく集めた master_data.csv と last_run.txt を追加
+        git add master_data.csv last_run.txt
+        
+        # 変更があればコミットしてプッシュ（リポジトリへ上書き保存）
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update data and keepalive: $(date +'%Y-%m-%d %H:%M:%S')" && git push)

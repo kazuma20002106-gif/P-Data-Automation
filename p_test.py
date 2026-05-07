@@ -12,8 +12,8 @@ STATE_PATH = Path("state.json")
 SEARCH_KEYWORD = "ヴァルヴレイヴ"
 TARGET_MACHINE_NAME = "L革命機ヴァルヴレイヴ D"
 
-# テスト範囲の限定（3台のみ）
-TARGET_DAI = ["0111", "0112", "0113"]
+# 対象となる台番号リスト（動的に取得するため初期化）
+TARGET_DAI = []
 
 
 def wait_random(page, min_sec=4.5, max_sec=7.5):
@@ -100,11 +100,11 @@ def search_machine(page, keyword):
 
 def save_to_csv(dai_no, extracted_data):
     """
-    抽出したデータを当日の日付のCSVファイルに追記（append）保存する。
+    データをマスターCSVファイルに永続的に蓄積する。
     ファイルが存在しない場合はヘッダーを自動生成する。
     """
-    today_str = datetime.now().strftime("%Y%m%d")
-    filename = f"target_data_{today_str}.csv"
+    filename = "master_data.csv"
+    today_str = datetime.now().strftime("%Y-%m-%d")
     
     labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"]
     file_exists = os.path.isfile(filename)
@@ -113,15 +113,17 @@ def save_to_csv(dai_no, extracted_data):
         with open(filename, mode='a', encoding='utf-8-sig', newline='') as f:
             writer = csv.writer(f)
             if not file_exists:
-                header = ["台番号"] + labels
+                # 1列目に取得日を追加
+                header = ["取得日", "台番号"] + labels
                 writer.writerow(header)
                 
-            row_data = [dai_no]
+            # データ行の1列目にも取得日を挿入
+            row_data = [today_str, dai_no]
             for label in labels:
                 row_data.append(extracted_data.get(label, "未検出"))
                 
             writer.writerow(row_data)
-            print(f"台番号 {dai_no} のデータを {filename} に保存しました。")
+            print(f"台番号 {dai_no} のデータを {filename} に蓄積しました。")
     except Exception as e:
         print(f"CSV保存中にエラーが発生しました: {e}")
 
@@ -280,6 +282,48 @@ def scrape_detail_page(page, dai_no):
         
     # ※画像撮影に関する処理は完全にパージ（削除）済
 
+def get_all_target_dais(page):
+    print("ページから対象の全台番号を自動抽出します...")
+    page.wait_for_timeout(3000)
+    
+    js_code = r"""
+    () => {
+        const els = document.querySelectorAll('a, div, span, button');
+        const dais = new Set();
+        for (let el of els) {
+            let txt = el.innerText;
+            if (!txt) continue;
+            txt = txt.trim();
+            // P-CUBEでは「0111」や「0111番台」のように表示されることが多い
+            if (/^\d{3,4}$/.test(txt)) {
+                dais.add(txt);
+            } else if (/^\d{3,4}番台$/.test(txt)) {
+                dais.add(txt.replace('番台', ''));
+            }
+        }
+        return Array.from(dais).sort((a, b) => parseInt(a) - parseInt(b));
+    }
+    """
+    raw_dais = page.evaluate(js_code)
+    
+    # 最強の純化フィルター
+    cleaned_dais = []
+    for d in raw_dais:
+        d = d.strip()
+        if d.isdigit():
+            # 4桁にゼロ埋め
+            padded = d.zfill(4)
+            # 0から始まる4桁（1000番台以上のノイズを消すため）であれば追加
+            if padded.startswith("0") and len(padded) == 4:
+                # さらに "0100" や "0109" といった明らかなノイズ（111より前）を弾く
+                if int(padded) >= 111:
+                    cleaned_dais.append(padded)
+
+    # 重複排除とソート
+    final_dais = sorted(list(set(cleaned_dais)))
+    print(f"純化された台番号（計 {len(final_dais)} 台）: {final_dais}")
+    return final_dais
+
 def patrol_dai_list(page):
     if not TARGET_DAI:
         return
@@ -291,12 +335,12 @@ def patrol_dai_list(page):
         if click_dai_number(page, first_dai):
             if detect_captcha(page): wait_for_manual_captcha_clear(page)
             # 初回アクセスの描画遅延に対応する確実な待機（3秒）
-            print("初回アクセスのため、グラフ描画を確実に待ちます（3秒）...")
+            print("初回アクセスのため、データ描画を確実に待ちます（3秒）...")
             page.wait_for_timeout(3000)
             scrape_detail_page(page, first_dai)
             wait_random(page)
             
-            # 以降は「次台」ボタンを使用して横移動巡回
+            # 以降は「次台」ボタンを使用して全台を横移動巡回（リミッター解除）
             for i in range(1, len(TARGET_DAI)):
                 next_dai = TARGET_DAI[i]
                 try:
@@ -326,7 +370,6 @@ def patrol_dai_list(page):
                     
                     # 【安全装置】機種名がまだ同じか確認
                     machine_name_visible = False
-                    # 部分一致で探索
                     if page.get_by_text(TARGET_MACHINE_NAME, exact=False).count() > 0 or \
                        page.get_by_text("ヴァルヴレイヴ", exact=False).count() > 0:
                         machine_name_visible = True
@@ -340,7 +383,7 @@ def patrol_dai_list(page):
                     print(f"【巡回スキップ】台番号 {next_dai} の処理中にエラーが発生しました: {type(e).__name__} - {e}")
                     if "Target closed" in str(e) or "TargetClosedError" in type(e).__name__ or "Browser closed" in str(e):
                         print("【重要】ブラウザの強制終了を検知しました。本日の偵察を安全に終了します。")
-                        return  # ループを抜け、関数全体を終了させる
+                        return
                     continue
                 
     except Exception as e:
@@ -375,6 +418,11 @@ def main():
         context.storage_state(path=str(STATE_PATH))
         
         click_machine_name(page)
+        
+        global TARGET_DAI
+        if not TARGET_DAI:
+            TARGET_DAI = get_all_target_dais(page)
+            
         patrol_dai_list(page)
         
         browser.close()
