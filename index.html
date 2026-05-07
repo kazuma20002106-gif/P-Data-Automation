@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-Data Analytics | L革命機ヴァルヴレイヴ D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cyber-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .neon-text-red {
+            color: #ef4444;
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+
+        .neon-text-blue {
+            color: #3b82f6;
+            text-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+        }
+
+        /* スクロールバーのカスタマイズ */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- ヘッダー -->
+        <header class="mb-8 border-b border-slate-700 pb-4">
+            <h1 class="text-3xl font-bold tracking-wider flex items-center gap-3">
+                <span class="neon-text-red">P-Data</span> Analytics
+            </h1>
+            <p class="text-slate-400 text-sm mt-2">Target: L革命機ヴァルヴレイヴ D</p>
+            <div class="mt-4 flex items-center justify-between">
+                <div class="text-sm">
+                    <span class="text-slate-500">更新日:</span>
+                    <span id="update-date" class="font-mono text-emerald-400">Loading...</span>
+                </div>
+                <button onclick="loadCSVData()"
+                    class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded text-sm transition-colors">
+                    🔄 データ更新
+                </button>
+            </div>
+        </header>
+
+        <!-- プレビューモード用のバナー -->
+        <div id="preview-mode-banner"
+            class="hidden bg-blue-900/50 border border-blue-500 text-blue-200 p-3 rounded mb-6 text-sm">
+            ℹ️ プレビュー環境のため、実際のCSVファイルが読み込めません。現在表示されているのはテスト時の<strong class="text-white">サンプルデータ</strong>です。
+            ご自身のPCやGitHubに配置すると、実際のデータが読み込まれます。
+        </div>
+
+        <!-- データ表示エリア -->
+        <div id="loading" class="text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+            <p class="mt-4 text-slate-400">CSVデータを解析中...</p>
+        </div>
+
+        <div id="error-message" class="hidden bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-6">
+            エラー: データを読み込めませんでした。<br>
+            <span class="text-sm">target_data_20260508.csv が同じフォルダに存在するか確認してください。</span>
+        </div>
+
+        <!-- テーブル（PC用）とカード（スマホ用）のハイブリッド表示 -->
+        <div id="data-container" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- データカードがここにJSで挿入されます -->
+        </div>
+
+    </div>
+
+    <script>
+        // CSVファイルのパス（本日の日付のCSVを指定）
+        const CSV_FILE_PATH = 'target_data_20260508.csv';
+
+        // プレビュー環境（Canvas）でエラーになった場合のモックデータ
+        const MOCK_CSV_DATA = `台番号,BONUS,BIG,REG,BIG確率,REG確率,最大継続,合成確率,累計ゲーム,最終ゲーム,最大放出数
+0111,52,52,45,7,1/175.2,1/1126,16,1/151.6,7882,176
+0112,75,75,66,9,1/99.9,1/732.4,18,1/87.9,6591,101
+0113,9,9,7,2,1/387.3,1/1355.5,2,1/301.3,2711,1`;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 今日の日付をセット
+            const today = new Date();
+            document.getElementById('update-date').textContent = today.toLocaleDateString('ja-JP');
+
+            // 初回読み込み
+            loadCSVData();
+        });
+
+        async function loadCSVData() {
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('data-container');
+            const errorMsg = document.getElementById('error-message');
+            const previewBanner = document.getElementById('preview-mode-banner');
+
+            loading.classList.remove('hidden');
+            container.classList.add('hidden');
+            errorMsg.classList.add('hidden');
+            previewBanner.classList.add('hidden');
+            container.innerHTML = ''; // クリア
+
+            let csvText = "";
+
+            try {
+                // キャンバスプレビューやローカル直開き（file://、blob://など）では
+                // 相対パスのFetchがURL解析エラーを引き起こすため、実行環境を事前に判定して回避する
+                if (window.location.protocol.startsWith('blob') || window.location.protocol === 'data:' || window.location.protocol === 'file:') {
+                    throw new Error('ローカル・プレビュー環境を検知しました');
+                }
+
+                const response = await fetch(CSV_FILE_PATH);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                csvText = await response.text();
+            } catch (error) {
+                console.info('CSVの読み込みをスキップしました。プレビュー用のモックデータを使用します。', error.message);
+                // エラーになった場合やプレビュー環境の場合はモックデータを代入してプレビューを表示させる
+                csvText = MOCK_CSV_DATA;
+                previewBanner.classList.remove('hidden');
+            }
+
+            try {
+                // CSVをパース
+                const data = parseCSV(csvText);
+
+                if (data.length === 0) {
+                    throw new Error("CSVデータが空です");
+                }
+
+                // ヘッダー行を取得
+                const headers = data[0];
+
+                // データ行をレンダリング（1行目はヘッダーなのでスキップ）
+                for (let i = 1; i < data.length; i++) {
+                    if (data[i].length <= 1) continue; // 空行スキップ
+                    renderDataCard(headers, data[i], container);
+                }
+
+                loading.classList.add('hidden');
+                container.classList.remove('hidden');
+
+            } catch (parseError) {
+                console.error('CSVパースエラー:', parseError);
+                loading.classList.add('hidden');
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // 簡易CSVパーサー
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            return lines.map(line => {
+                // ダブルクォート対応などの複雑なパースは今回は省略
+                return line.split(',').map(val => val.trim());
+            }).filter(row => row.length > 0);
+        }
+
+        // カードのレンダリング
+        function renderDataCard(headers, rowData, container) {
+            // rowData[0] が台番号であると仮定
+            const daiNo = rowData[0] || 'Unknown';
+
+            const card = document.createElement('div');
+            card.className = 'cyber-card rounded-xl p-5 transition-transform hover:scale-[1.02]';
+
+            // カードヘッダー
+            let html = `
+                <div class="flex justify-between items-end border-b border-slate-700 pb-3 mb-4">
+                    <h2 class="text-2xl font-black tracking-widest text-white">#${daiNo}</h2>
+                    <span class="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">ヴァルヴレイヴ</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+            `;
+
+            // 重要な数値を強調表示するための定義
+            const highlightKeys = ['BIG', '最大放出数', '合成確率'];
+
+            // データの埋め込み（1列目の台番号以降をループ）
+            for (let i = 1; i < headers.length; i++) {
+                const key = headers[i];
+                const value = rowData[i] || '-';
+
+                let valueClass = "text-slate-300 font-mono";
+                if (highlightKeys.includes(key)) {
+                    valueClass = "text-xl font-bold neon-text-blue";
+                }
+                if (key === '最大放出数') {
+                    valueClass = "text-xl font-bold neon-text-red";
+                }
+
+                html += `
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-slate-500 mb-1">${key}</span>
+                        <span class="${valueClass}">${value}</span>
+                    </div>
+                `;
+            }
+
+            html += `</div>`;
+            card.innerHTML = html;
+            container.appendChild(card);
+        }
+    </script>
+</body>
+
+</html>
