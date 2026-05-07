@@ -83,13 +83,33 @@ def click_search_or_press_enter(page, target_input):
 
 def search_machine(page, keyword):
     print(f"検索キーワード「{keyword}」を入力します。")
-    target_input = find_visible_input(page)
-    if not target_input: raise Exception("入力欄未検出")
+    print("ページ通信の安定化を待機中（networkidle）...")
+    try:
+        page.wait_for_load_state("networkidle", timeout=10000)
+    except:
+        pass # 完全なアイドルにならなくても次へ進む
+        
+    target_input = None
+    selectors = ['#search_word', 'input[type="text"]', 'input[placeholder*="機種"]']
+    
+    for selector in selectors:
+        try:
+            print(f"セレクタ '{selector}' を最大15秒間待機します...")
+            element = page.wait_for_selector(selector, timeout=15000, state="visible")
+            if element:
+                target_input = element
+                break
+        except:
+            continue
+            
+    if not target_input: 
+        raise Exception("入力欄未検出: すべてのフォールバックセレクタで15秒間タイムアウトしました")
+        
     target_input.fill("")
     target_input.type(keyword, delay=120)
     click_search_or_press_enter(page, target_input)
     print("検索処理を実行しました。ページ遷移を確実に待ちます...")
-    page.wait_for_timeout(6000) 
+    page.wait_for_timeout(6000)
 
 def save_to_csv(dai_no, extracted_data):
     """
@@ -389,7 +409,7 @@ def main():
             "viewport": {"width": 1366, "height": 900},
             "locale": "ja-JP",
             "timezone_id": "Asia/Tokyo",
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "java_script_enabled": True,
             "bypass_csp": True,
             "extra_http_headers": {
