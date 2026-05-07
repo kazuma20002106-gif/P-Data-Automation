@@ -54,62 +54,7 @@ def detect_captcha(page) -> bool:
     return False
 
 def wait_for_manual_captcha_clear(page):
-    print("【致命的エラー】CAPTCHAが検出されました。クラウド（Headless）環境では手動解除が不可能なため、処理を即座に中断します。")
-    raise Exception("Cloud Environment: CAPTCHA detected, manual clearance is impossible.")
-
-def find_visible_input(page):
-    input_candidates = ["input[type='text']", "input[type='search']", "input[type='number']", "input"]
-    for selector in input_candidates:
-        locators = page.locator(selector)
-        for i in range(locators.count()):
-            candidate = locators.nth(i)
-            if candidate.is_visible() and candidate.is_enabled():
-                return candidate
-    return None
-
-def click_search_or_press_enter(page, target_input):
-    icon_selectors = ["button[type='submit']", "img[src*='search']", "img[src*='icon_search']", "button[class*='search']"]
-    for selector in icon_selectors:
-        try:
-            elements = page.locator(selector)
-            for i in range(elements.count()):
-                btn = elements.nth(i)
-                if btn.is_visible():
-                    btn.click()
-                    return True
-        except: pass
-    target_input.press("Enter")
-    return False
-
-def search_machine(page, keyword):
-    print(f"検索キーワード「{keyword}」を入力します。")
-    print("ページ通信の安定化を待機中（networkidle）...")
-    try:
-        page.wait_for_load_state("networkidle", timeout=10000)
-    except:
-        pass # 完全なアイドルにならなくても次へ進む
-        
-    target_input = None
-    selectors = ['#search_word', 'input[type="text"]', 'input[placeholder*="機種"]']
-    
-    for selector in selectors:
-        try:
-            print(f"セレクタ '{selector}' を最大15秒間待機します...")
-            element = page.wait_for_selector(selector, timeout=15000, state="visible")
-            if element:
-                target_input = element
-                break
-        except:
-            continue
-            
-    if not target_input: 
-        raise Exception("入力欄未検出: すべてのフォールバックセレクタで15秒間タイムアウトしました")
-        
-    target_input.fill("")
-    target_input.type(keyword, delay=120)
-    click_search_or_press_enter(page, target_input)
-    print("検索処理を実行しました。ページ遷移を確実に待ちます...")
-    page.wait_for_timeout(6000)
+    raise Exception("Cloud environment detected CAPTCHA. Aborting.")
 
 def save_to_csv(dai_no, extracted_data):
     """
@@ -213,45 +158,7 @@ def extract_precise_data(page):
     filtered_result = {k: v for k, v in result.items() if v != "未検出"}
     return filtered_result if filtered_result else {"データ": "全て未検出"}
 
-def click_machine_name(page):
-    print(f"機種を検索中: {TARGET_MACHINE_NAME}")
-    
-    # 強化ポイント：表記揺れを全て網羅する広域レーダーの復活
-    search_patterns = [
-        "L革命機ヴァルヴレイヴ D",
-        "L革命機ヴァルヴレイヴD",
-        "革命機ヴァルヴレイヴ"
-    ]
-    
-    target_element = None
-    print("機種の表示を探すため、画面を探索します...")
-    
-    for _ in range(15): 
-        for pattern in search_patterns:
-            try:
-                # exact=False で部分一致を許容し、逃さずキャッチする
-                locators = page.get_by_text(pattern, exact=False)
-                for i in range(locators.count()):
-                    if locators.nth(i).is_visible():
-                        target_element = locators.nth(i)
-                        break
-            except: pass
-            if target_element: break
-        if target_element: break
-            
-        page.mouse.wheel(0, 300)
-        page.wait_for_timeout(1000)
-
-    if target_element:
-        print("ターゲットを確認しました。貫通クリックを実行します。")
-        target_element.scroll_into_view_if_needed()
-        target_element.click(force=True)
-        page.wait_for_load_state("domcontentloaded")
-        wait_random(page)
-        return
-        
-    page.screenshot(path="debug_machine_not_found.png", full_page=True)
-    raise Exception("機種未検出: debug_machine_not_found.png を確認してください。")
+# (機種検索とクリックはURL直アクセスにより不要となったため削除済)
 
 def click_dai_number(page, dai_no):
     print(f"台番号を検索中: {dai_no}")
@@ -409,7 +316,7 @@ def main():
             "viewport": {"width": 1366, "height": 900},
             "locale": "ja-JP",
             "timezone_id": "Asia/Tokyo",
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             "java_script_enabled": True,
             "bypass_csp": True,
             "extra_http_headers": {
@@ -424,13 +331,14 @@ def main():
         # navigator.webdriverの無効化（超重要：Playwrightの痕跡を消し去る）
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        print("ページへアクセス中...")
-        page.goto(URL, wait_until="domcontentloaded")
-        search_machine(page, SEARCH_KEYWORD)
-        if detect_captcha(page): wait_for_manual_captcha_clear(page)
-        context.storage_state(path=str(STATE_PATH))
+        print("目的の機種ページへ直接アクセスします...")
+        TARGET_URL = "https://www.pscube.jp/dedamajyoho-P-townDMMpachi/c721601/cgi-bin/nc-v05-003.php?cd_ps=2&bai=21.7391&nmk_kisyu=L+%25E9%259D%25A9%25E5%2591%25BD%25E6%25A9%259F%25E3%2583%25B4%25E3%2582%25A1%25E3%2583%25AB%25E3%2583%25B4%25E3%2583%25AC%25E3%2582%25A4%25E3%2583%25B4+D"
+        page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
         
-        click_machine_name(page)
+        if detect_captcha(page):
+            raise Exception("CAPTCHA Blocked.")
+            
+        context.storage_state(path=str(STATE_PATH))
         
         global TARGET_DAI
         if not TARGET_DAI:
