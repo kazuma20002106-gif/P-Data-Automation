@@ -54,15 +54,8 @@ def detect_captcha(page) -> bool:
     return False
 
 def wait_for_manual_captcha_clear(page):
-    print("CAPTCHAが検出されました。手動でCAPTCHAを解除してください。")
-    for _ in range(300):
-        page.wait_for_timeout(1000)
-        try:
-            if not detect_captcha(page):
-                return
-        except:
-            pass
-    raise TimeoutError("CAPTCHA解除待機がタイムアウトしました。")
+    print("【致命的エラー】CAPTCHAが検出されました。クラウド（Headless）環境では手動解除が不可能なため、処理を即座に中断します。")
+    raise Exception("Cloud Environment: CAPTCHA detected, manual clearance is impossible.")
 
 def find_visible_input(page):
     input_candidates = ["input[type='text']", "input[type='search']", "input[type='number']", "input"]
@@ -391,7 +384,7 @@ def patrol_dai_list(page):
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=300)
+        browser = p.chromium.launch(headless=True)
         context_options = {
             "viewport": {"width": 1366, "height": 900},
             "locale": "ja-JP",
