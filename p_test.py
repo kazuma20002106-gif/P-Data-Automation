@@ -241,7 +241,10 @@ def get_all_target_dais(page):
 
     # 重複排除とソート
     final_dais = sorted(list(set(cleaned_dais)))
-    print(f"純化された台番号（計 {len(final_dais)} 台）: {final_dais}")
+    if len(final_dais) == 0:
+        print("警告: 台番号が1件も見つかりませんでした。")
+    else:
+        print(f"純化された台番号（計 {len(final_dais)} 台）: {final_dais}")
     return final_dais
 
 def patrol_dai_list(page):
@@ -334,6 +337,7 @@ def main():
         print("目的の機種ページへ直接アクセスします...")
         TARGET_URL = "https://www.pscube.jp/dedamajyoho-P-townDMMpachi/c721601/cgi-bin/nc-v05-003.php?cd_ps=2&bai=21.7391&nmk_kisyu=L+%25E9%259D%25A9%25E5%2591%25BD%25E6%25A9%259F%25E3%2583%25B4%25E3%2582%25A1%25E3%2583%25AB%25E3%2583%25B4%25E3%2583%25AC%25E3%2582%25A4%25E3%2583%25B4+D"
         page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
+        page.screenshot(path="debug_screen.png")
         
         if detect_captcha(page):
             raise Exception("CAPTCHA Blocked.")
@@ -343,6 +347,7 @@ def main():
         global TARGET_DAI
         if not TARGET_DAI:
             TARGET_DAI = get_all_target_dais(page)
+            page.screenshot(path="debug_screen.png")
             
         patrol_dai_list(page)
         
