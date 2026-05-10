@@ -30,7 +30,7 @@ jobs:
         playwright install --with-deps chromium
         
     - name: Run Scraper
-      run: python p_test.py
+      run: xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" python p_test.py
       
     # 失敗しても成功しても、撮影したスクリーンショットを「Artifact」として保存する（原因究明用）
     - name: Upload Debug Screenshot
