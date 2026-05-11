@@ -1,19 +1,45 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P-Data Analytics | L革命機ヴァルヴレイヴ D</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
-        .cyber-card { background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid #334155; }
-        .neon-text-red { color: #ef4444; text-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
-        .search-input { background: #1e293b; border: 1px solid #334155; color: white; }
-        .scrollbar-thin::-webkit-scrollbar { height: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: sans-serif;
+        }
+
+        .cyber-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+        }
+
+        .neon-text-red {
+            color: #ef4444;
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+
+        .search-input {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: white;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
     </style>
 </head>
+
 <body class="min-h-screen p-4 md:p-8">
     <div class="max-w-6xl mx-auto">
         <header class="mb-6 border-b border-slate-700 pb-4">
@@ -22,21 +48,25 @@
             </h1>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
                 <div class="flex flex-col gap-1">
-                    <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase italic font-mono">📅 Universal Parser v10.3</span>
+                    <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase italic font-mono">📅
+                        Universal Parser v10.3</span>
                     <div id="month-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
                 </div>
                 <div class="flex items-center gap-2 ml-auto">
-                    <input type="text" id="search-box" placeholder="台番号検索..." class="search-input px-3 py-1 rounded text-xs w-32" oninput="filterCards()">
+                    <input type="text" id="search-box" placeholder="台番号検索..."
+                        class="search-input px-3 py-1 rounded text-xs w-32" oninput="filterCards()">
                     <button onclick="loadCSV()" class="bg-slate-700 p-1 px-2 rounded text-xs text-slate-300">🔄</button>
                 </div>
             </div>
-            <div id="date-pills" class="flex gap-2 overflow-x-auto mt-2 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
+            <div id="date-pills"
+                class="flex gap-2 overflow-x-auto mt-2 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
         </header>
 
         <div id="loading" class="text-center py-12">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
         </div>
-        <div id="error-message" class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-xs mb-6 text-center text-white"></div>
+        <div id="error-message"
+            class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-xs mb-6 text-center text-white"></div>
         <div id="data-count" class="mb-4 text-right text-[10px] text-emerald-400 font-mono font-bold uppercase"></div>
         <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
@@ -55,26 +85,41 @@
                 if (!res.ok) throw new Error("CSVファイルへの接続に失敗しました");
                 let text = await res.text();
                 text = text.replace(/^\uFEFF/, '').trim();
-                
+
                 const lines = text.split(/\r?\n/).filter(l => l.trim().includes(','));
                 if (lines.length <= 1) throw new Error("CSVデータが1件もありません");
 
                 globalData = lines.map(line => line.split(',').map(v => v.replace(/^"|"$/g, '').trim()));
                 globalHeaders = globalData[0];
-                
-                const dateSet = new Set();
-                for(let i=1; i<globalData.length; i++) {
-                    if(globalData[i][0]) dateSet.add(globalData[i][0].replace(/\//g, '-'));
+
+                window.datesMap = new Map();
+                const daySet = new Set();
+
+                for (let i = 1; i < globalData.length; i++) {
+                    const row = globalData[i];
+                    if (row[0]) {
+                        const fullDateStr = row[0].replace(/\//g, '-');
+                        const dayStr = fullDateStr.split(' ')[0]; // YYYY-MM-DD
+                        
+                        daySet.add(dayStr);
+                        
+                        if (!window.datesMap.has(dayStr)) {
+                            window.datesMap.set(dayStr, []);
+                        }
+                        window.datesMap.get(dayStr).push({
+                            fullDateStr: fullDateStr,
+                            row: row
+                        });
+                    }
                 }
-                
-                const sortedDates = Array.from(dateSet).sort((a,b) => b.localeCompare(a));
+
+                const sortedDates = Array.from(daySet).sort((a, b) => b.localeCompare(a));
                 const grouped = {};
-                sortedDates.forEach(dStr => {
-                    const dateOnly = dStr.split(' ')[0];
-                    const d = new Date(dateOnly);
-                    const label = !isNaN(d) ? `${d.getFullYear()}年${d.getMonth()+1}月` : "その他";
-                    if(!grouped[label]) grouped[label] = [];
-                    grouped[label].push(dStr);
+                sortedDates.forEach(dayStr => {
+                    const d = new Date(dayStr);
+                    const label = !isNaN(d) ? `${d.getFullYear()}年${d.getMonth() + 1}月` : "その他";
+                    if (!grouped[label]) grouped[label] = [];
+                    grouped[label].push(dayStr);
                 });
 
                 renderUI(grouped);
@@ -97,7 +142,7 @@
                 btn.textContent = month;
                 btn.onclick = () => showDates(month, grouped[month], btn);
                 tabs.appendChild(btn);
-                if(idx === 0) showDates(month, grouped[month], btn);
+                if (idx === 0) showDates(month, grouped[month], btn);
             });
         }
 
@@ -106,57 +151,73 @@
             btn.classList.add('bg-emerald-600', 'text-white');
             const pills = document.getElementById('date-pills');
             pills.innerHTML = ''; pills.classList.remove('hidden');
-            dates.forEach((dStr, idx) => {
+            dates.forEach((dayStr, idx) => {
                 const p = document.createElement('button');
                 p.className = "px-3 py-1 border border-slate-600 rounded-full text-[9px] font-mono whitespace-nowrap hover:border-emerald-500 text-slate-400";
-                const parts = dStr.split(' ');
-                p.textContent = parts[0].split('-').slice(2) + '日 ' + (parts[1] || '');
+                const parts = dayStr.split('-');
+                p.textContent = parts.length >= 3 ? parts[2] + '日' : dayStr;
                 p.onclick = () => {
                     Array.from(pills.children).forEach(c => c.classList.remove('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400'));
                     p.classList.add('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400');
-                    display(dStr);
+                    display(dayStr);
                 };
                 pills.appendChild(p);
-                if(idx === 0) p.click();
+                if (idx === 0) p.click();
             });
         }
 
-        function display(dateStr) {
+        function display(dayStr) {
             const container = document.getElementById('data-container');
             container.innerHTML = '';
-            let count = 0;
-            const targetDateNorm = dateStr.replace(/\//g, '-');
             
-            for(let i=1; i<globalData.length; i++) {
-                const row = globalData[i];
-                if(row[0].replace(/\//g, '-') === targetDateNorm) {
-                    const card = document.createElement('div');
-                    card.className = "cyber-card p-3 rounded cyber-card-wrapper";
-                    card.setAttribute('data-daino', row[1] || '???');
-                    
-                    let bodyHtml = `<div class="flex justify-between items-center mb-2 border-b border-slate-700">
-                                        <h2 class="text-lg font-black">#${row[1] || '???'}</h2>
-                                        <span class="text-[7px] text-slate-600 font-bold uppercase">VVV-D</span>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-x-2 gap-y-1">`;
-                    
-                    const labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"];
-                    labels.forEach((label, j) => {
-                        const val = row[j+2] || '-';
-                        const isMain = label === 'BIG' || label === '最大放出数';
-                        bodyHtml += `<div class="flex flex-col">
-                                        <div class="text-[7px] text-slate-500 uppercase font-bold">${label}</div>
-                                        <div class="${isMain ? 'text-sm text-emerald-400 font-black' : 'text-xs text-slate-300 font-mono'}">${val}</div>
-                                     </div>`;
-                    });
-                    
-                    bodyHtml += `</div>`;
-                    card.innerHTML = bodyHtml;
-                    container.appendChild(card);
-                    count++;
-                }
-            }
-            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED (${dateStr})`;
+            const dayRecords = window.datesMap.get(dayStr) || [];
+            const latestRecords = new Map();
+            let maxTime = "";
+            
+            dayRecords.forEach(record => {
+                const row = record.row;
+                const dai_no = row[1] || '???';
+                const parts = record.fullDateStr.split(' ');
+                const time = parts.length > 1 ? parts[1] : '';
+                
+                if (time && time > maxTime) maxTime = time;
+                
+                // 同じ日の同じ台番号なら、後から読み取ったデータ（CSVの下の方）で上書きする
+                latestRecords.set(dai_no, row);
+            });
+            
+            const displayRows = Array.from(latestRecords.values());
+            let count = 0;
+
+            displayRows.forEach(row => {
+                const card = document.createElement('div');
+                card.className = "cyber-card p-3 rounded cyber-card-wrapper";
+                card.setAttribute('data-daino', row[1] || '???');
+
+                let bodyHtml = `<div class="flex justify-between items-center mb-2 border-b border-slate-700">
+                                    <h2 class="text-lg font-black">#${row[1] || '???'}</h2>
+                                    <span class="text-[7px] text-slate-600 font-bold uppercase">VVV-D</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-x-2 gap-y-1">`;
+
+                const labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"];
+                labels.forEach((label, j) => {
+                    const val = row[j + 2] || '-';
+                    const isMain = label === 'BIG' || label === '最大放出数';
+                    bodyHtml += `<div class="flex flex-col">
+                                    <div class="text-[7px] text-slate-500 uppercase font-bold">${label}</div>
+                                    <div class="${isMain ? 'text-sm text-emerald-400 font-black' : 'text-xs text-slate-300 font-mono'}">${val}</div>
+                                 </div>`;
+                });
+
+                bodyHtml += `</div>`;
+                card.innerHTML = bodyHtml;
+                container.appendChild(card);
+                count++;
+            });
+            
+            const timeDisplay = maxTime ? ` (最終更新: ${maxTime})` : '';
+            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED - ${dayStr}${timeDisplay}`;
         }
 
         function filterCards() {
@@ -167,4 +228,5 @@
         }
     </script>
 </body>
+
 </html>
