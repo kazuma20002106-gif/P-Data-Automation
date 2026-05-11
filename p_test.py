@@ -118,7 +118,7 @@ def save_to_csv(dai_no, extracted_data):
     ファイルが存在しない場合はヘッダーを自動生成する。
     """
     filename = "master_data.csv"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    today_str = datetime.now().strftime("%Y-%m-%d")
     
     labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"]
     file_exists = os.path.isfile(filename)
@@ -132,7 +132,7 @@ def save_to_csv(dai_no, extracted_data):
                 writer.writerow(header)
                 
             # データ行の1列目にも取得日を挿入
-            row_data = [now_str, dai_no]
+            row_data = [today_str, dai_no]
             for label in labels:
                 row_data.append(extracted_data.get(label, "未検出"))
                 
