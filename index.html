@@ -1,243 +1,179 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P-Data Analytics | L革命機ヴァルヴレイヴ D</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-        }
-
-        .cyber-card {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            border: 1px solid #334155;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-        }
-
-        .neon-text-red {
-            color: #ef4444;
-            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
-        }
-
-        .neon-text-blue {
-            color: #3b82f6;
-            text-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
-        }
-
-        /* スクロールバーのカスタマイズ */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
+        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+        .cyber-card { background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid #334155; }
+        .neon-text-red { color: #ef4444; text-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+        .search-input { background: #1e293b; border: 1px solid #334155; color: white; }
+        .scrollbar-thin::-webkit-scrollbar { height: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     </style>
 </head>
-
 <body class="min-h-screen p-4 md:p-8">
-
     <div class="max-w-6xl mx-auto">
-        <!-- ヘッダー -->
-        <header class="mb-8 border-b border-slate-700 pb-4">
+        <header class="mb-6 border-b border-slate-700 pb-4">
             <h1 class="text-3xl font-bold tracking-wider flex items-center gap-3">
                 <span class="neon-text-red">P-Data</span> Analytics
             </h1>
-            <p class="text-slate-400 text-sm mt-2">Target: L革命機ヴァルヴレイヴ D</p>
-            <div class="mt-4 flex items-center justify-between">
-                <div class="text-sm">
-                    <span class="text-slate-500">データ取得日:</span>
-                    <span id="update-date" class="font-mono text-emerald-400">Loading...</span>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-col gap-2">
+                    <span class="text-xs text-slate-500 font-bold tracking-widest uppercase">📅 DAILY TIME MACHINE (日次集約)</span>
+                    <div id="month-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
                 </div>
-                <button onclick="loadCSVData()"
-                    class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded text-sm transition-colors">
-                    🔄 最新化
-                </button>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="search-box" placeholder="台番号検索..." class="search-input px-3 py-1.5 rounded-lg text-sm" oninput="filterCards()">
+                </div>
             </div>
+            <!-- 日付単位（1日1ボタン）表示エリア -->
+            <div id="date-pills" class="flex gap-2 overflow-x-auto mt-3 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
         </header>
 
-        <!-- プレビューモード用のバナー -->
-        <div id="preview-mode-banner"
-            class="hidden bg-blue-900/50 border border-blue-500 text-blue-200 p-3 rounded mb-6 text-sm">
-            ℹ️ プレビュー環境のため、実際のCSVファイルが読み込めません。現在表示されているのはテスト時の<strong class="text-white">サンプルデータ</strong>です。
-        </div>
-
-        <!-- データ表示エリア -->
         <div id="loading" class="text-center py-12">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
-            <p class="mt-4 text-slate-400">マスターデータを解析中...</p>
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mx-auto"></div>
         </div>
-
-        <div id="error-message" class="hidden bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-6">
-            エラー: データを読み込めませんでした。<br>
-            <span class="text-sm">master_data.csv が同じフォルダに存在するか確認してください。</span>
-        </div>
-
-        <!-- データ件数表示 -->
-        <div id="data-count" class="hidden mb-4 text-right text-sm text-slate-400 font-mono"></div>
-
-        <!-- テーブル（PC用）とカード（スマホ用）のハイブリッド表示 -->
-        <div id="data-container" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- データカードがここにJSで挿入されます -->
-        </div>
-
+        <div id="error-message" class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-sm mb-6 text-center text-white"></div>
+        <div id="data-count" class="mb-4 text-right text-xs text-emerald-400 font-mono font-bold tracking-widest uppercase"></div>
+        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </div>
 
     <script>
-        // マスターデータファイルのパスに変更
-        const CSV_FILE_PATH = 'master_data.csv';
+        const CSV_PATH = 'master_data.csv';
+        let globalData = [];
+        let globalHeaders = [];
 
-        // プレビュー環境用のモックデータ（マスターデータ仕様：1列目が日付）
-        const MOCK_CSV_DATA = `取得日,台番号,BONUS,BIG,REG,BIG確率,REG確率,最大継続,合成確率,累計ゲーム,最終ゲーム,最大放出数
-2026-05-08,0111,52,52,45,7,1/175.2,1/1126,16,1/151.6,7882,176
-2026-05-08,0112,75,75,66,9,1/99.9,1/732.4,18,1/87.9,6591,101
-2026-05-08,0113,9,9,7,2,1/387.3,1/1355.5,2,1/301.3,2711,1`;
+        document.addEventListener('DOMContentLoaded', loadCSV);
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadCSVData();
-        });
+        async function loadCSV() {
+            try {
+                const res = await fetch(CSV_PATH);
+                if (!res.ok) throw new Error("CSV読み込み失敗");
+                let text = await res.text();
+                text = text.replace(/^\uFEFF/, '');
+                const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+                globalData = lines.map(line => line.split(',').map(v => v.replace(/^"|"$/g, '').trim()));
+                globalHeaders = globalData[0];
+                
+                // 【日次集約ロジック】日付(YYYY-MM-DD)をキーに、その日の「最新時刻」を保持する
+                const dailyLatestMap = new Map();
+                for(let i=1; i<globalData.length; i++) {
+                    const fullDateStr = globalData[i][0].replace(/\//g, '-');
+                    if(!fullDateStr) continue;
+                    
+                    const dayOnly = fullDateStr.split(' ')[0]; // '2026-05-11'
+                    if(!dailyLatestMap.has(dayOnly) || fullDateStr > dailyLatestMap.get(dayOnly)) {
+                        dailyLatestMap.set(dayOnly, fullDateStr);
+                    }
+                }
+                
+                // 日付（降順）でソート
+                const sortedDays = Array.from(dailyLatestMap.keys()).sort((a,b) => b.localeCompare(a));
+                
+                const grouped = {};
+                sortedDays.forEach(dayOnly => {
+                    const d = new Date(dayOnly);
+                    const label = !isNaN(d) ? `${d.getFullYear()}年${d.getMonth()+1}月` : "その他";
+                    if(!grouped[label]) grouped[label] = [];
+                    // グループには「その日の最新フルタイムスタンプ」を格納
+                    grouped[label].push({ day: dayOnly, latestFull: dailyLatestMap.get(dayOnly) });
+                });
 
-        async function loadCSVData() {
-            const loading = document.getElementById('loading');
+                renderUI(grouped);
+                document.getElementById('loading').classList.add('hidden');
+            } catch (e) {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error-message').innerHTML = "<b>master_data.csv を解析できません。</b>";
+                document.getElementById('error-message').classList.remove('hidden');
+            }
+        }
+
+        function renderUI(grouped) {
+            const tabs = document.getElementById('month-tabs');
+            tabs.innerHTML = '';
+            Object.keys(grouped).forEach((month, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-bold whitespace-nowrap transition-colors uppercase tracking-wider";
+                btn.textContent = month;
+                btn.onclick = () => showDates(month, grouped[month], btn);
+                tabs.appendChild(btn);
+                if(idx === 0) showDates(month, grouped[month], btn);
+            });
+        }
+
+        function showDates(month, dayInfos, btn) {
+            Array.from(btn.parentNode.children).forEach(b => b.classList.remove('bg-emerald-600', 'text-white'));
+            btn.classList.add('bg-emerald-600', 'text-white');
+            const pills = document.getElementById('date-pills');
+            pills.innerHTML = ''; pills.classList.remove('hidden');
+            
+            dayInfos.forEach((info, idx) => {
+                const p = document.createElement('button');
+                p.className = "px-4 py-1.5 border border-slate-600 rounded-full text-[10px] font-mono whitespace-nowrap hover:border-emerald-500 transition-colors text-slate-400 text-left";
+                
+                const d = new Date(info.day);
+                const timePart = info.latestFull.split(' ')[1] || "??:??";
+                // ボタンの表示： 11日 (最終 08:45)
+                p.innerHTML = `<span class="text-white font-bold">${d.getDate()}日</span> <span class="text-[8px] opacity-70">(最終 ${timePart})</span>`;
+                
+                p.onclick = () => {
+                    Array.from(pills.children).forEach(c => c.classList.remove('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400'));
+                    p.classList.add('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400');
+                    display(info.day);
+                };
+                pills.appendChild(p);
+                if(idx === 0) p.click();
+            });
+        }
+
+        function display(selectedDay) {
             const container = document.getElementById('data-container');
-            const errorMsg = document.getElementById('error-message');
-            const previewBanner = document.getElementById('preview-mode-banner');
-            const countDisplay = document.getElementById('data-count');
-
-            loading.classList.remove('hidden');
-            container.classList.add('hidden');
-            errorMsg.classList.add('hidden');
-            previewBanner.classList.add('hidden');
-            countDisplay.classList.add('hidden');
             container.innerHTML = '';
-
-            let csvText = "";
-
-            try {
-                if (window.location.protocol.startsWith('blob') || window.location.protocol === 'data:' || window.location.protocol === 'file:') {
-                    throw new Error('ローカル・プレビュー環境を検知しました');
+            let count = 0;
+            
+            // 【日次統合表示】選択された日付(YYYY-MM-DD)で始まるデータをすべて表示
+            for(let i=1; i<globalData.length; i++) {
+                const rowDate = globalData[i][0].replace(/\//g, '-');
+                if(rowDate.startsWith(selectedDay)) {
+                    if(globalData[i][2] === '未検出') continue;
+                    
+                    const card = document.createElement('div');
+                    card.className = "cyber-card p-5 rounded-xl cyber-card-wrapper transition-transform hover:scale-[1.02]";
+                    card.setAttribute('data-daino', globalData[i][1]);
+                    
+                    let bodyHtml = `<div class="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
+                                        <h2 class="text-2xl font-black italic">#${globalData[i][1]}</h2>
+                                        <span class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Valvrave D</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-x-3 gap-y-3">`;
+                    
+                    globalHeaders.slice(2).forEach((h, j) => {
+                        const val = globalData[i][j+2];
+                        const isMain = h === 'BIG' || h === '最大放出数' || h === '合成確率';
+                        bodyHtml += `<div class="flex flex-col">
+                                        <div class="text-[8px] text-slate-500 uppercase font-bold tracking-tighter">${h}</div>
+                                        <div class="${isMain ? 'text-lg text-emerald-400 font-black' : 'text-sm text-slate-300 font-mono'}">${val}</div>
+                                     </div>`;
+                    });
+                    
+                    bodyHtml += `</div>`;
+                    card.innerHTML = bodyHtml;
+                    container.appendChild(card);
+                    count++;
                 }
-                const response = await fetch(CSV_FILE_PATH);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                csvText = await response.text();
-            } catch (error) {
-                console.info('CSVの読み込みをスキップしました。プレビュー用のモックデータを使用します。', error.message);
-                csvText = MOCK_CSV_DATA;
-                previewBanner.classList.remove('hidden');
             }
-
-            try {
-                const data = parseCSV(csvText);
-                if (data.length <= 1) {
-                    throw new Error("CSVデータが空、またはヘッダーのみです");
-                }
-
-                // ヘッダー行
-                const headers = data[0];
-
-                // マスターデータから「最新の日付」を特定（一番下の行の1列目）
-                // ※空行を考慮して後ろから探す
-                let latestDate = "";
-                for (let i = data.length - 1; i >= 1; i--) {
-                    if (data[i].length > 1 && data[i][0]) {
-                        latestDate = data[i][0];
-                        break;
-                    }
-                }
-
-                document.getElementById('update-date').textContent = latestDate || 'Unknown';
-                let displayCount = 0;
-
-                // データ行をレンダリング（最新の日付と一致する行のみを表示）
-                for (let i = 1; i < data.length; i++) {
-                    if (data[i].length <= 1) continue;
-
-                    // 1列目（取得日）が最新の日付と一致する場合のみカード化
-                    if (data[i][0] === latestDate) {
-                        renderDataCard(headers, data[i], container);
-                        displayCount++;
-                    }
-                }
-
-                countDisplay.textContent = `表示中: ${displayCount} 台`;
-                countDisplay.classList.remove('hidden');
-                loading.classList.add('hidden');
-                container.classList.remove('hidden');
-
-            } catch (parseError) {
-                console.error('CSVパースエラー:', parseError);
-                loading.classList.add('hidden');
-                errorMsg.classList.remove('hidden');
-            }
+            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED ON ${selectedDay}`;
         }
 
-        function parseCSV(text) {
-            const lines = text.split('\n');
-            return lines.map(line => {
-                return line.split(',').map(val => val.trim());
-            }).filter(row => row.length > 0);
-        }
-
-        function renderDataCard(headers, rowData, container) {
-            // マスターデータ仕様：0列目が日付、1列目が台番号
-            const daiNo = rowData[1] || 'Unknown';
-
-            const card = document.createElement('div');
-            card.className = 'cyber-card rounded-xl p-5 transition-transform hover:scale-[1.02]';
-
-            let html = `
-                <div class="flex justify-between items-end border-b border-slate-700 pb-3 mb-4">
-                    <h2 class="text-2xl font-black tracking-widest text-white">#${daiNo}</h2>
-                    <span class="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">ヴァルヴレイヴ</span>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-            `;
-
-            const highlightKeys = ['BIG', '最大放出数', '合成確率'];
-
-            // データの埋め込み（2列目のBONUS以降をループ）
-            for (let i = 2; i < headers.length; i++) {
-                const key = headers[i];
-                const value = rowData[i] || '-';
-
-                let valueClass = "text-slate-300 font-mono";
-                if (highlightKeys.includes(key)) {
-                    valueClass = "text-xl font-bold neon-text-blue";
-                }
-                if (key === '最大放出数') {
-                    valueClass = "text-xl font-bold neon-text-red";
-                }
-
-                html += `
-                    <div class="flex flex-col">
-                        <span class="text-[10px] text-slate-500 mb-1">${key}</span>
-                        <span class="${valueClass}">${value}</span>
-                    </div>
-                `;
-            }
-
-            html += `</div>`;
-            card.innerHTML = html;
-            container.appendChild(card);
+        function filterCards() {
+            const q = document.getElementById('search-box').value;
+            document.querySelectorAll('.cyber-card-wrapper').forEach(c => {
+                c.style.display = c.getAttribute('data-daino').includes(q) ? 'block' : 'none';
+            });
         }
     </script>
 </body>
-
 </html>
