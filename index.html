@@ -21,24 +21,24 @@
                 <span class="neon-text-red">P-Data</span> Analytics
             </h1>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex flex-col gap-2">
-                    <span class="text-xs text-slate-500 font-bold tracking-widest uppercase">📅 DAILY TIME MACHINE (日次集約)</span>
+                <div class="flex flex-col gap-1">
+                    <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase italic font-mono">📅 Universal Parser v10.3</span>
                     <div id="month-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="search-box" placeholder="台番号検索..." class="search-input px-3 py-1.5 rounded-lg text-sm" oninput="filterCards()">
+                <div class="flex items-center gap-2 ml-auto">
+                    <input type="text" id="search-box" placeholder="台番号検索..." class="search-input px-3 py-1 rounded text-xs w-32" oninput="filterCards()">
+                    <button onclick="loadCSV()" class="bg-slate-700 p-1 px-2 rounded text-xs text-slate-300">🔄</button>
                 </div>
             </div>
-            <!-- 日付単位（1日1ボタン）表示エリア -->
-            <div id="date-pills" class="flex gap-2 overflow-x-auto mt-3 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
+            <div id="date-pills" class="flex gap-2 overflow-x-auto mt-2 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
         </header>
 
         <div id="loading" class="text-center py-12">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mx-auto"></div>
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
         </div>
-        <div id="error-message" class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-sm mb-6 text-center text-white"></div>
-        <div id="data-count" class="mb-4 text-right text-xs text-emerald-400 font-mono font-bold tracking-widest uppercase"></div>
-        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        <div id="error-message" class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-xs mb-6 text-center text-white"></div>
+        <div id="data-count" class="mb-4 text-right text-[10px] text-emerald-400 font-mono font-bold uppercase"></div>
+        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
 
     <script>
@@ -50,44 +50,41 @@
 
         async function loadCSV() {
             try {
-                const res = await fetch(CSV_PATH);
-                if (!res.ok) throw new Error("CSV読み込み失敗");
+                // キャッシュ回避
+                const res = await fetch(CSV_PATH + '?nocache=' + Date.now());
+                if (!res.ok) throw new Error("CSVファイルへの接続に失敗しました");
                 let text = await res.text();
-                text = text.replace(/^\uFEFF/, '');
-                const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+                text = text.replace(/^\uFEFF/, '').trim();
+                
+                const lines = text.split(/\r?\n/).filter(l => l.trim().includes(','));
+                if (lines.length <= 1) throw new Error("CSVデータが1件もありません");
+
                 globalData = lines.map(line => line.split(',').map(v => v.replace(/^"|"$/g, '').trim()));
                 globalHeaders = globalData[0];
                 
-                // 【日次集約ロジック】日付(YYYY-MM-DD)をキーに、その日の「最新時刻」を保持する
-                const dailyLatestMap = new Map();
+                const dateSet = new Set();
                 for(let i=1; i<globalData.length; i++) {
-                    const fullDateStr = globalData[i][0].replace(/\//g, '-');
-                    if(!fullDateStr) continue;
-                    
-                    const dayOnly = fullDateStr.split(' ')[0]; // '2026-05-11'
-                    if(!dailyLatestMap.has(dayOnly) || fullDateStr > dailyLatestMap.get(dayOnly)) {
-                        dailyLatestMap.set(dayOnly, fullDateStr);
-                    }
+                    if(globalData[i][0]) dateSet.add(globalData[i][0].replace(/\//g, '-'));
                 }
                 
-                // 日付（降順）でソート
-                const sortedDays = Array.from(dailyLatestMap.keys()).sort((a,b) => b.localeCompare(a));
-                
+                const sortedDates = Array.from(dateSet).sort((a,b) => b.localeCompare(a));
                 const grouped = {};
-                sortedDays.forEach(dayOnly => {
-                    const d = new Date(dayOnly);
+                sortedDates.forEach(dStr => {
+                    const dateOnly = dStr.split(' ')[0];
+                    const d = new Date(dateOnly);
                     const label = !isNaN(d) ? `${d.getFullYear()}年${d.getMonth()+1}月` : "その他";
                     if(!grouped[label]) grouped[label] = [];
-                    // グループには「その日の最新フルタイムスタンプ」を格納
-                    grouped[label].push({ day: dayOnly, latestFull: dailyLatestMap.get(dayOnly) });
+                    grouped[label].push(dStr);
                 });
 
                 renderUI(grouped);
                 document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error-message').classList.add('hidden');
             } catch (e) {
                 document.getElementById('loading').classList.add('hidden');
-                document.getElementById('error-message').innerHTML = "<b>master_data.csv を解析できません。</b>";
-                document.getElementById('error-message').classList.remove('hidden');
+                const err = document.getElementById('error-message');
+                err.innerHTML = `<b>解析エラー:</b> ${e.message}<br><span class='text-[10px]'>※データ取得が完了し、GitHubへPushされるまで数分かかります。</span>`;
+                err.classList.remove('hidden');
             }
         }
 
@@ -96,7 +93,7 @@
             tabs.innerHTML = '';
             Object.keys(grouped).forEach((month, idx) => {
                 const btn = document.createElement('button');
-                btn.className = "px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-bold whitespace-nowrap transition-colors uppercase tracking-wider";
+                btn.className = "px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[9px] font-bold whitespace-nowrap transition-colors uppercase";
                 btn.textContent = month;
                 btn.onclick = () => showDates(month, grouped[month], btn);
                 tabs.appendChild(btn);
@@ -104,58 +101,52 @@
             });
         }
 
-        function showDates(month, dayInfos, btn) {
+        function showDates(month, dates, btn) {
             Array.from(btn.parentNode.children).forEach(b => b.classList.remove('bg-emerald-600', 'text-white'));
             btn.classList.add('bg-emerald-600', 'text-white');
             const pills = document.getElementById('date-pills');
             pills.innerHTML = ''; pills.classList.remove('hidden');
-            
-            dayInfos.forEach((info, idx) => {
+            dates.forEach((dStr, idx) => {
                 const p = document.createElement('button');
-                p.className = "px-4 py-1.5 border border-slate-600 rounded-full text-[10px] font-mono whitespace-nowrap hover:border-emerald-500 transition-colors text-slate-400 text-left";
-                
-                const d = new Date(info.day);
-                const timePart = info.latestFull.split(' ')[1] || "??:??";
-                // ボタンの表示： 11日 (最終 08:45)
-                p.innerHTML = `<span class="text-white font-bold">${d.getDate()}日</span> <span class="text-[8px] opacity-70">(最終 ${timePart})</span>`;
-                
+                p.className = "px-3 py-1 border border-slate-600 rounded-full text-[9px] font-mono whitespace-nowrap hover:border-emerald-500 text-slate-400";
+                const parts = dStr.split(' ');
+                p.textContent = parts[0].split('-').slice(2) + '日 ' + (parts[1] || '');
                 p.onclick = () => {
                     Array.from(pills.children).forEach(c => c.classList.remove('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400'));
                     p.classList.add('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400');
-                    display(info.day);
+                    display(dStr);
                 };
                 pills.appendChild(p);
                 if(idx === 0) p.click();
             });
         }
 
-        function display(selectedDay) {
+        function display(dateStr) {
             const container = document.getElementById('data-container');
             container.innerHTML = '';
             let count = 0;
+            const targetDateNorm = dateStr.replace(/\//g, '-');
             
-            // 【日次統合表示】選択された日付(YYYY-MM-DD)で始まるデータをすべて表示
             for(let i=1; i<globalData.length; i++) {
-                const rowDate = globalData[i][0].replace(/\//g, '-');
-                if(rowDate.startsWith(selectedDay)) {
-                    if(globalData[i][2] === '未検出') continue;
-                    
+                const row = globalData[i];
+                if(row[0].replace(/\//g, '-') === targetDateNorm) {
                     const card = document.createElement('div');
-                    card.className = "cyber-card p-5 rounded-xl cyber-card-wrapper transition-transform hover:scale-[1.02]";
-                    card.setAttribute('data-daino', globalData[i][1]);
+                    card.className = "cyber-card p-3 rounded cyber-card-wrapper";
+                    card.setAttribute('data-daino', row[1] || '???');
                     
-                    let bodyHtml = `<div class="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                                        <h2 class="text-2xl font-black italic">#${globalData[i][1]}</h2>
-                                        <span class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Valvrave D</span>
+                    let bodyHtml = `<div class="flex justify-between items-center mb-2 border-b border-slate-700">
+                                        <h2 class="text-lg font-black">#${row[1] || '???'}</h2>
+                                        <span class="text-[7px] text-slate-600 font-bold uppercase">VVV-D</span>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-x-3 gap-y-3">`;
+                                    <div class="grid grid-cols-2 gap-x-2 gap-y-1">`;
                     
-                    globalHeaders.slice(2).forEach((h, j) => {
-                        const val = globalData[i][j+2];
-                        const isMain = h === 'BIG' || h === '最大放出数' || h === '合成確率';
+                    const labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"];
+                    labels.forEach((label, j) => {
+                        const val = row[j+2] || '-';
+                        const isMain = label === 'BIG' || label === '最大放出数';
                         bodyHtml += `<div class="flex flex-col">
-                                        <div class="text-[8px] text-slate-500 uppercase font-bold tracking-tighter">${h}</div>
-                                        <div class="${isMain ? 'text-lg text-emerald-400 font-black' : 'text-sm text-slate-300 font-mono'}">${val}</div>
+                                        <div class="text-[7px] text-slate-500 uppercase font-bold">${label}</div>
+                                        <div class="${isMain ? 'text-sm text-emerald-400 font-black' : 'text-xs text-slate-300 font-mono'}">${val}</div>
                                      </div>`;
                     });
                     
@@ -165,7 +156,7 @@
                     count++;
                 }
             }
-            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED ON ${selectedDay}`;
+            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED (${dateStr})`;
         }
 
         function filterCards() {
