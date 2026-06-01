@@ -16,6 +16,10 @@ TARGET_MACHINE_NAME = "L革命機ヴァルヴレイヴ D"
 TARGET_DAI = []
 
 def push_to_github():
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print("☁️ GitHub Actions 環境ではワークフロー側でPushを行うため、スクリプトからのPushをスキップします。")
+        return
+        
     print("\n--- [SYNC] クラウド同期フェーズ ---")
     try:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
