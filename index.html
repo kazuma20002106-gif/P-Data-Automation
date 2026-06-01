@@ -6,27 +6,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P-Data Analytics | L革命機ヴァルヴレイヴ D</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            red: '#ff2a4d',
+                            glow: 'rgba(255, 42, 77, 0.5)',
+                            dark: '#0B0E14',
+                            card: 'rgba(20, 24, 34, 0.7)',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body {
-            background-color: #0f172a;
+            background-color: #0B0E14;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(255, 42, 77, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(30, 58, 138, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
             color: #f8fafc;
-            font-family: sans-serif;
         }
 
-        .cyber-card {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            border: 1px solid #334155;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 42, 77, 0.3);
+            box-shadow: 0 10px 40px rgba(255, 42, 77, 0.15);
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .neon-text-red {
-            color: #ef4444;
-            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+            color: #ff2a4d;
+            text-shadow: 0 0 10px rgba(255, 42, 77, 0.6), 0 0 20px rgba(255, 42, 77, 0.4);
         }
 
         .search-input {
-            background: #1e293b;
-            border: 1px solid #334155;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
+            transition: all 0.2s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #ff2a4d;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(255, 42, 77, 0.2);
         }
 
         .scrollbar-thin::-webkit-scrollbar {
@@ -34,41 +80,86 @@
         }
 
         .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #475569;
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 4px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 42, 77, 0.5);
+        }
+        
+        .tab-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn.active {
+            background: rgba(255, 42, 77, 0.1);
+            border-color: rgba(255, 42, 77, 0.5);
+            color: #ff2a4d;
+            box-shadow: inset 0 0 10px rgba(255, 42, 77, 0.2);
+        }
+
+        .pill-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .pill-btn.active {
+            background: rgba(255, 42, 77, 0.15);
+            border-color: #ff2a4d;
+            color: #ff2a4d;
+            box-shadow: 0 0 10px rgba(255, 42, 77, 0.2);
         }
     </style>
 </head>
 
-<body class="min-h-screen p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <header class="mb-6 border-b border-slate-700 pb-4">
-            <h1 class="text-3xl font-bold tracking-wider flex items-center gap-3">
-                <span class="neon-text-red">P-Data</span> Analytics
-            </h1>
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex flex-col gap-1">
-                    <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase italic font-mono">📅
-                        Universal Parser v10.3</span>
-                    <div id="month-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
+<body class="min-h-screen p-4 md:p-8 font-sans antialiased">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 border-b border-white/10 pb-6">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-4xl md:text-5xl font-black tracking-tight flex items-center gap-3">
+                        <span class="neon-text-red">P-DATA</span>
+                        <span class="text-white/90">ANALYTICS</span>
+                    </h1>
+                    <p class="text-[10px] text-white/40 mt-1 font-mono tracking-[0.2em] uppercase">Universal Parser v10.4 // Project Valvrave</p>
                 </div>
-                <div class="flex items-center gap-2 ml-auto">
-                    <input type="text" id="search-box" placeholder="台番号検索..."
-                        class="search-input px-3 py-1 rounded text-xs w-32" oninput="filterCards()">
-                    <button onclick="loadCSV()" class="bg-slate-700 p-1 px-2 rounded text-xs text-slate-300">🔄</button>
+                
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <input type="text" id="search-box" placeholder="台番号検索..."
+                            class="search-input pl-8 pr-4 py-2 rounded-lg text-sm w-48 font-mono placeholder:text-white/30" oninput="filterCards()">
+                        <svg class="w-4 h-4 absolute left-2.5 top-2.5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <button onclick="loadCSV()" class="bg-white/5 hover:bg-white/10 border border-white/10 p-2 rounded-lg text-white/70 transition-all hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
                 </div>
             </div>
-            <div id="date-pills"
-                class="flex gap-2 overflow-x-auto mt-2 py-2 hidden scrollbar-thin border-t border-slate-800"></div>
+
+            <div class="mt-8 flex flex-col gap-4">
+                <div id="month-tabs" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"></div>
+                <div id="date-pills" class="flex gap-2 overflow-x-auto pb-2 hidden scrollbar-thin"></div>
+            </div>
         </header>
 
-        <div id="loading" class="text-center py-12">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
+        <div id="loading" class="text-center py-20">
+            <div class="relative w-16 h-16 mx-auto">
+                <div class="absolute inset-0 border-4 border-brand-red/20 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-brand-red rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <p class="mt-4 text-brand-red font-mono text-sm tracking-widest animate-pulse">CONNECTING TO DATABASE...</p>
         </div>
-        <div id="error-message"
-            class="hidden p-4 rounded bg-red-900/50 border border-red-500 text-xs mb-6 text-center text-white"></div>
-        <div id="data-count" class="mb-4 text-right text-[10px] text-emerald-400 font-mono font-bold uppercase"></div>
-        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        
+        <div id="error-message" class="hidden p-6 rounded-xl bg-red-500/10 border border-red-500/50 text-sm mb-8 text-center text-red-200 backdrop-blur-md"></div>
+        
+        <div class="flex justify-between items-center mb-6">
+            <div class="text-white/50 text-xs font-mono" id="model-info">TARGET: L革命機ヴァルヴレイヴ D</div>
+            <div id="data-count" class="text-[11px] text-brand-red font-mono font-bold uppercase tracking-wider"></div>
+        </div>
+        
+        <div id="data-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
     </div>
 
     <script>
@@ -80,7 +171,6 @@
 
         async function loadCSV() {
             try {
-                // キャッシュ回避
                 const res = await fetch(CSV_PATH + '?nocache=' + Date.now());
                 if (!res.ok) throw new Error("CSVファイルへの接続に失敗しました");
                 let text = await res.text();
@@ -99,7 +189,7 @@
                     const row = globalData[i];
                     if (row[0]) {
                         const fullDateStr = row[0].replace(/\//g, '-');
-                        const dayStr = fullDateStr.split(' ')[0]; // YYYY-MM-DD
+                        const dayStr = fullDateStr.split(' ')[0];
                         
                         daySet.add(dayStr);
                         
@@ -128,7 +218,7 @@
             } catch (e) {
                 document.getElementById('loading').classList.add('hidden');
                 const err = document.getElementById('error-message');
-                err.innerHTML = `<b>解析エラー:</b> ${e.message}<br><span class='text-[10px]'>※データ取得が完了し、GitHubへPushされるまで数分かかります。</span>`;
+                err.innerHTML = `<b class="text-red-400">解析エラー:</b> ${e.message}<br><span class='text-[10px] text-red-300/70 mt-2 block'>※データ取得が完了し、GitHubへPushされるまで数分かかります。</span>`;
                 err.classList.remove('hidden');
             }
         }
@@ -138,7 +228,7 @@
             tabs.innerHTML = '';
             Object.keys(grouped).forEach((month, idx) => {
                 const btn = document.createElement('button');
-                btn.className = "px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[9px] font-bold whitespace-nowrap transition-colors uppercase";
+                btn.className = "tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap text-white/70 tracking-wider";
                 btn.textContent = month;
                 btn.onclick = () => showDates(month, grouped[month], btn);
                 tabs.appendChild(btn);
@@ -147,18 +237,18 @@
         }
 
         function showDates(month, dates, btn) {
-            Array.from(btn.parentNode.children).forEach(b => b.classList.remove('bg-emerald-600', 'text-white'));
-            btn.classList.add('bg-emerald-600', 'text-white');
+            Array.from(btn.parentNode.children).forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
             const pills = document.getElementById('date-pills');
             pills.innerHTML = ''; pills.classList.remove('hidden');
             dates.forEach((dayStr, idx) => {
                 const p = document.createElement('button');
-                p.className = "px-3 py-1 border border-slate-600 rounded-full text-[9px] font-mono whitespace-nowrap hover:border-emerald-500 text-slate-400";
+                p.className = "pill-btn px-4 py-1.5 border border-white/10 bg-white/5 rounded-full text-[11px] font-mono whitespace-nowrap text-white/50 hover:border-brand-red/50 hover:text-white/90";
                 const parts = dayStr.split('-');
                 p.textContent = parts.length >= 3 ? parts[2] + '日' : dayStr;
                 p.onclick = () => {
-                    Array.from(pills.children).forEach(c => c.classList.remove('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400'));
-                    p.classList.add('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-400');
+                    Array.from(pills.children).forEach(c => c.classList.remove('active'));
+                    p.classList.add('active');
                     display(dayStr);
                 };
                 pills.appendChild(p);
@@ -181,8 +271,6 @@
                 const time = parts.length > 1 ? parts[1] : '';
                 
                 if (time && time > maxTime) maxTime = time;
-                
-                // 同じ日の同じ台番号なら、後から読み取ったデータ（CSVの下の方）で上書きする
                 latestRecords.set(dai_no, row);
             });
             
@@ -191,23 +279,31 @@
 
             displayRows.forEach(row => {
                 const card = document.createElement('div');
-                card.className = "cyber-card p-3 rounded cyber-card-wrapper";
+                card.className = "glass-card p-5 rounded-2xl cyber-card-wrapper flex flex-col";
                 card.setAttribute('data-daino', row[1] || '???');
 
-                let bodyHtml = `<div class="flex justify-between items-center mb-2 border-b border-slate-700">
-                                    <h2 class="text-lg font-black">#${row[1] || '???'}</h2>
-                                    <span class="text-[7px] text-slate-600 font-bold uppercase">VVV-D</span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-x-2 gap-y-1">`;
+                let bodyHtml = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-white/40 font-mono tracking-widest mb-1">UNIT NO.</span>
+                            <h2 class="text-3xl font-black font-mono tracking-tighter text-white">#${row[1] || '???'}</h2>
+                        </div>
+                        <div class="bg-brand-red/10 border border-brand-red/30 text-brand-red text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+                            ACTIVE
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-auto">`;
 
                 const labels = ["BONUS", "BIG", "REG", "BIG確率", "REG確率", "最大継続", "合成確率", "累計ゲーム", "最終ゲーム", "最大放出数"];
                 labels.forEach((label, j) => {
                     const val = row[j + 2] || '-';
                     const isMain = label === 'BIG' || label === '最大放出数';
-                    bodyHtml += `<div class="flex flex-col">
-                                    <div class="text-[7px] text-slate-500 uppercase font-bold">${label}</div>
-                                    <div class="${isMain ? 'text-sm text-emerald-400 font-black' : 'text-xs text-slate-300 font-mono'}">${val}</div>
-                                 </div>`;
+                    const valColor = isMain ? 'text-brand-red font-black text-base drop-shadow-md' : 'text-white/80 font-medium text-sm';
+                    bodyHtml += `
+                        <div class="flex flex-col bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                            <div class="text-[8px] text-white/40 uppercase font-bold tracking-wider mb-0.5">${label}</div>
+                            <div class="font-mono ${valColor}">${val}</div>
+                        </div>`;
                 });
 
                 bodyHtml += `</div>`;
@@ -216,17 +312,16 @@
                 count++;
             });
             
-            const timeDisplay = maxTime ? ` (最終更新: ${maxTime})` : '';
-            document.getElementById('data-count').textContent = `STATUS: ${count} UNITS DETECTED - ${dayStr}${timeDisplay}`;
+            const timeDisplay = maxTime ? `<span class="ml-2 text-white/40 font-normal">UPDATED: ${maxTime}</span>` : '';
+            document.getElementById('data-count').innerHTML = `SCAN RESULT: <span class="text-white ml-1">${count}</span> UNITS DETECTED ${timeDisplay}`;
         }
 
         function filterCards() {
             const q = document.getElementById('search-box').value;
             document.querySelectorAll('.cyber-card-wrapper').forEach(c => {
-                c.style.display = c.getAttribute('data-daino').includes(q) ? 'block' : 'none';
+                c.style.display = c.getAttribute('data-daino').includes(q) ? 'flex' : 'none';
             });
         }
     </script>
 </body>
-
 </html>
