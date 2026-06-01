@@ -6,6 +6,7 @@ import subprocess
 import traceback
 from datetime import datetime
 from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
 
 URL = "https://www.pscube.jp/dedamajyoho-P-townDMMpachi/c721601/"
 SEARCH_KEYWORD = "ヴァルヴレイヴ"
@@ -66,6 +67,11 @@ def detect_captcha(page) -> bool:
     return False
 
 def wait_for_manual_captcha_clear(page):
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print("クラウド上では手動CAPTCHA解除が不可能なため、即座にエラーとして終了します。")
+        page.screenshot(path="debug_screen.png", full_page=True)
+        raise Exception("クラウド環境でCAPTCHAが検出されました。ボット対策によりブロックされました。")
+        
     print("CAPTCHAが検出されました。手動でCAPTCHAを解除してください。")
     for _ in range(300):
         page.wait_for_timeout(1000)
@@ -412,23 +418,50 @@ def patrol_dai_list(page):
 
 def main():
     with sync_playwright() as p:
-        user_data_dir = os.path.abspath("./user_data_victory")
-        context = p.chromium.launch_persistent_context(
-            user_data_dir, 
-            headless=False, 
-            slow_mo=300,
-            args=['--disable-blink-features=AutomationControlled'],
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-            viewport={"width": 1366, "height": 900},
-            locale="ja-JP",
-            timezone_id="Asia/Tokyo",
-            bypass_csp=True,
-            extra_http_headers={
-                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
-                "Upgrade-Insecure-Requests": "1"
-            }
-        )
-        page = context.pages[0]
+        is_github = os.getenv("GITHUB_ACTIONS") == "true"
+        
+        if is_github:
+            print("☁️ GitHub Actions 環境での実行を検知しました。仮想ブラウザを起動します。")
+            browser = p.chromium.launch(
+                headless=False,
+                slow_mo=300,
+                args=['--disable-blink-features=AutomationControlled']
+            )
+            context = browser.new_context(
+                storage_state="state.json" if os.path.exists("state.json") else None,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                viewport={"width": 1366, "height": 900},
+                locale="ja-JP",
+                timezone_id="Asia/Tokyo",
+                bypass_csp=True,
+                extra_http_headers={
+                    "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                    "Upgrade-Insecure-Requests": "1"
+                }
+            )
+            page = context.new_page()
+        else:
+            print("💻 ローカルPC環境での実行を検知しました。永続プロファイルをロードします。")
+            user_data_dir = os.path.abspath("./user_data_victory")
+            context = p.chromium.launch_persistent_context(
+                user_data_dir, 
+                headless=False, 
+                slow_mo=300,
+                args=['--disable-blink-features=AutomationControlled'],
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                viewport={"width": 1366, "height": 900},
+                locale="ja-JP",
+                timezone_id="Asia/Tokyo",
+                bypass_csp=True,
+                extra_http_headers={
+                    "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+                    "Upgrade-Insecure-Requests": "1"
+                }
+            )
+            page = context.pages[0]
+        
+        # ボット検知回避（stealth）を適用
+        stealth_sync(page)
         
         # navigator.webdriverの無効化（超重要：Playwrightの痕跡を消し去る）
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -455,6 +488,9 @@ def main():
             print(f"\n[CRITICAL ERROR] 重大なエラーが発生しました:")
             traceback.print_exc()
         finally:
+            if not is_github:
+                print("クラウド環境と同期するため、現在のブラウザセッションを state.json に保存します...")
+                context.storage_state(path="state.json")
             page.wait_for_timeout(5000)
             context.close()
 
