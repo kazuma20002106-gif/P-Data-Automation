@@ -23,7 +23,7 @@ def push_to_github():
     print("\n--- [SYNC] クラウド同期フェーズ ---")
     try:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        subprocess.run(["git", "add", "master_data.csv"], check=True, capture_output=True)
+        subprocess.run("git add master_data.csv history_*.csv", shell=True, check=True, capture_output=True)
         res = subprocess.run(["git", "commit", "-m", f"Auto-update: {now_str}"], capture_output=True, text=True)
         if "nothing to commit" not in res.stdout:
             subprocess.run(["git", "push", "origin", "main"], check=True, capture_output=True)
@@ -233,6 +233,64 @@ def extract_precise_data(page):
     filtered_result = {k: v for k, v in result.items() if v != "未検出"}
     return filtered_result if filtered_result else {"データ": "全て未検出"}
 
+def extract_history_data(page, dai_no):
+    """
+    大当り履歴（時間、種類、枚数など）を抽出して月別CSVに保存する（AI分析用）
+    """
+    js_code = r"""
+    () => {
+        const tables = document.querySelectorAll('table');
+        let historyData = [];
+        
+        for (let tbl of tables) {
+            const text = tbl.innerText;
+            // 履歴テーブルのキーワード
+            if (text.includes('時間') || text.includes('履歴') || text.includes('大当り') || text.includes('スタート')) {
+                const rows = tbl.querySelectorAll('tr');
+                for (let row of rows) {
+                    const cells = Array.from(row.querySelectorAll('th, td')).map(td => td.innerText.replace(/\n/g, ' ').trim());
+                    if (cells.length >= 2 && cells.join('').trim() !== "") {
+                        historyData.push(cells);
+                    }
+                }
+                if (historyData.length > 0) break;
+            }
+        }
+        
+        if (historyData.length === 0) {
+            const divs = document.querySelectorAll('[class*="history"] tr, [class*="record"] tr');
+            for (let div of divs) {
+                const text = div.innerText.replace(/\n/g, ' ').trim();
+                if(text) historyData.push([text]);
+            }
+        }
+        return historyData;
+    }
+    """
+    try:
+        history = page.evaluate(js_code)
+        if not history:
+            print(f"履歴データは見つかりませんでした。")
+            return
+            
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
+        month_str = now.strftime("%Y_%m")
+        filename = f"history_{month_str}.csv"
+        file_exists = os.path.isfile(filename)
+        
+        with open(filename, mode='a', encoding='utf-8-sig', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["取得日", "台番号", "カラム1", "カラム2", "カラム3", "カラム4", "カラム5", "カラム6"])
+                
+            for row in history:
+                writer.writerow([today_str, dai_no] + row)
+                
+        print(f"履歴データを {len(history)} 行取得し {filename} に保存しました。")
+    except Exception as e:
+        print(f"履歴抽出エラー: {e}")
+
 def click_machine_name(page):
     print(f"機種を検索中: {TARGET_MACHINE_NAME}")
     
@@ -312,6 +370,8 @@ def scrape_detail_page(page, dai_no):
         
     if extracted.get("データ") != "全て未検出":
         save_to_csv(dai_no, extracted)
+        # 履歴データの抽出（将来のAI分析用）
+        extract_history_data(page, dai_no)
 
 def get_all_target_dais(page):
     print("ページから対象の全台番号を自動抽出します...")
